@@ -15,5 +15,31 @@ _estack = ORIGIN(DTCM) + LENGTH(DTCM);
 SECTIONS
 {
   .isr_vector : {KEEP(*(.isr_vector))} > FLASH
-  .text : {*(.text*) *(.rodata*)} > FLASH 
+  .text : 
+  {
+    *(.text*) 
+    *(.rodata*)
+    . = ALIGN(4);
+  } > FLASH 
+  .data :
+  {
+    . = ALIGN(4);
+    _sdata = .;          /* run address (VMA) start */
+    *(.data*)
+    . = ALIGN(4);
+    _edata = .;          /* run address end */ 
+  } > DTCM AT> FLASH
+
+  _sidata = LOADADDR(.data);
+
+  .bss :
+  {
+   . = ALIGN(4);
+    _sbss = .;
+    *(.bss*)
+    *(COMMON)
+    . = ALIGN(4);
+    _ebss = .;
+  } > DTCM
+
 }

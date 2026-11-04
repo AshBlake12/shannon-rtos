@@ -10,12 +10,15 @@ ASFLAGS = $(CPU) -g3
 CFLAGS  = $(CPU) -g3 -O0 -Wall -Wextra -ffreestanding -ffunction-sections -fdata-sections
 LDFLAGS = $(CPU) -nostdlib -T h7a3.ld -Wl,-Map=$(BUILD)/$(TARGET).map -Wl,--gc-sections
 
-OBJS    = $(BUILD)/startup.o
+OBJS    = $(BUILD)/startup.o $(BUILD)/main.o
 
 all: $(BUILD)/$(TARGET).elf $(BUILD)/$(TARGET).bin
 
 $(BUILD)/%.o: %.S | $(BUILD)
 	$(CC) $(ASFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: %.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/$(TARGET).elf: $(OBJS) h7a3.ld
 	$(CC) $(LDFLAGS) $(OBJS) -o $@

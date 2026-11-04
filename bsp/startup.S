@@ -10,10 +10,14 @@ g_pfnVectors:
     .word _estack              
     .word Reset_Handler        
     .word NMI_Handler
-    .word HardFault_Handler    
-    .word MemManage_Handler    
-    .word BusFault_Handler      
-    .word UsageFault_Handler    
+    // .word HardFault_Handler    
+    //  .word MemManage_Handler    
+    // .word BusFault_Handler      
+    // .word UsageFault_Handler    
+    .word Fault_Entry           /* 3. HArdFault */
+    .word Fault_Entry           /*  4: MemManage */
+    .word Fault_Entry           /*  5: BusFault */
+    .word Fault_Entry           /*  6: UsageFault */
     .word 0                     
     .word 0                     
     .word 0                     
@@ -88,7 +92,7 @@ Default_Handler:
     .weak NMI_Handler
     .thumb_set NMI_Handler, Default_Handler
 
-    .weak HardFault_Handler
+  /*  .weak HardFault_Handler
     .thumb_set HardFault_Handler, Default_Handler
 
     .weak MemManage_Handler
@@ -98,7 +102,7 @@ Default_Handler:
     .thumb_set BusFault_Handler, Default_Handler
 
     .weak UsageFault_Handler
-    .thumb_set UsageFault_Handler, Default_Handler
+    .thumb_set UsageFault_Handler, Default_Handler */
 
     .weak SVC_Handler
     .thumb_set SVC_Handler, Default_Handler

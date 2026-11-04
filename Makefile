@@ -6,7 +6,7 @@ OBJCOPY = arm-none-eabi-objcopy
 SIZE    = arm-none-eabi-size
 
 CPU     = -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
-INCLUDES= -Ithird_party/cmsis -Ibsp -Ilib
+INCLUDES= -Ithird_party/cmsis -Ibsp -Ilib -Iarch
 DEFINES = -DSTM32H7A3xxQ
 
 ASFLAGS = $(CPU) -g3
@@ -17,6 +17,9 @@ OBJS    = $(BUILD)/bsp/startup.o \
           $(BUILD)/bsp/board.o   \
           $(BUILD)/bsp/uart.o    \
           $(BUILD)/lib/kprintf.o \
+					$(BUILD)/bsp/timing.o  \
+          $(BUILD)/arch/fault_entry.o \
+          $(BUILD)/arch/fault.o  \
           $(BUILD)/main.o 
 
 all: $(BUILD)/$(TARGET).elf $(BUILD)/$(TARGET).bin

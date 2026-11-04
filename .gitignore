@@ -1,1 +1,4 @@
 build/
+STM32CubeH7/
+cmsis-device-h7/
+build/

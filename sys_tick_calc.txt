@@ -1,0 +1,20 @@
+We are truing to establish timing foundation for this RTOS.
+When blinking the LED we used a for loop to pause , hence the CPU is busy-wait ; now we will use the dedicated SysTick timer 
+
+volatile uint32_t g_ms;
+void SysTick_Handler(void) { g_ms++; }.
+Program SysTick: LOAD, then VAL = 0, then CTRL.
+
+Now we can use the delay func
+
+{Stack Frame} = {R0, R1, R2, R3, R12, LR, PC, xPSR}
+Under AAPCS :R0–R3, R12, and LR are designated as caller-saved (volatile). 
+Any standard C function assumes these registers may be freely overwritten by callees and will preserve them if needed.
+R4–R11 are designated as callee-saved (non-volatile). 
+
+A standard C function preserves these on the stack before modifying them and restores them before returning.
+
+Because hardware stacks the caller-saved registers and the compiled C code preserves the callee-saved registers, 
+the entire register state (R0–R15 + xPSR) remains preserved across the interrupt without needing __attribute__((interrupt)). 
+
+The hardware loads LR with an EXC_RETURN value, and standard C function triggers hardware unstacking.

@@ -12,3 +12,13 @@
 #define GPIOB_ODR              REG32(GPIOB_BASE + 0x14UL)
 #define GPIOB_BSRR             REG32(GPIOB_BASE + 0x18UL)
 
+/*Systick*/ 
+#define SYSTICK_BASE           0xE000E010UL
+#define SYSTICK_CTRL           REG32(SYSTICK_BASE + 0x00UL)
+#define SYSTICK_LOAD           REG32(SYSTICK_BASE + 0x04UL)
+#define SYSTICK_VAL            REG32(SYSTICK_BASE + 0x08UL)
+#define SYSTICK_CALIB          REG32(SYSTICK_BASE + 0x0CUL)
+
+#define SYSTICK_CTRL_ENABLE    (1UL << 0)
+#define SYSTICK_CTRL_TICKINT   (1UL << 1)
+#define SYSTICK_CTRL_CLKSOURCE (1UL << 2)

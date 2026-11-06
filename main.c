@@ -5,7 +5,204 @@
 #include "timing.h"
 #include "fault.h"
 #include "stm32h7xx.h"
+#include "port.h"
+#include "task.h"
+#include "kernel.h"
 
+static uint32_t stack_a[256];
+static uint32_t stack_b[256];
+static tcb_t tcb_a;
+static tcb_t tcb_b;
+
+static volatile uint32_t g_switch_count = 0;
+static uint32_t g_t0 = 0;
+static uint32_t g_total_cycles = 0;
+
+static void task_a(void *arg)
+{
+    (void)arg;
+    for (;;) {
+
+        g_t0 = timing_get_cycles();
+        //board_delay_ms(500);
+        task_yield();
+
+        //after task b is yeilded
+        uint32_t delta = timing_get_cycles() - g_t0;
+        g_total_cycles += delta;
+        g_switch_count++;
+
+        if (g_switch_count == 10000) {
+            bool a_ok = task_canary_check(&tcb_a);
+            bool b_ok = task_canary_check(&tcb_b);
+            uint32_t avg_roundtrip = g_total_cycles / 10000;
+
+            kprintf("completed sws: %u\n", g_switch_count);
+            kprintf("cost avg_roundtrip: %u cycles\n", avg_roundtrip);
+            kprintf("Task A Canary: %s\n", a_ok ? "Yay" : "Sad");
+            kprintf("Task B Canary: %s\n", b_ok ? "Yay" : "Sad");
+
+
+        for(;;)
+        {
+            board_led_toggle();
+            kprintf("My Lord, Task A is runninh with PSP \n");
+            board_delay_ms(250);
+    
+        }
+
+
+
+        }
+
+        }
+
+}
+
+
+static void task_b(void *arg)
+{
+    (void)arg;
+    for (;;) {
+       // board_led_toggle();
+      //  kprintf("My Lord, Task B is runninh with PSP \n");
+        //board_delay_ms(500);
+        task_yield();
+    }
+}
+
+
+
+int main(void)
+{
+    board_init();
+    uart_init();
+    timing_init();
+    fault_init();
+    port_init();
+
+    kprintf("\n[Shannon-RTOS] kERNEL dAY -2 Pend_SV task switching test Blackmagic :P\n");
+
+    task_create(&tcb_a, stack_a, sizeof(stack_a), task_a, (void *)0x12345678UL, "task_a");
+    task_create(&tcb_b, stack_b, sizeof(stack_b), task_b, (void *)0x12345678UL, "task_b");
+
+
+    kernel_start();
+
+    kprintf("Task A and B Created my Lord: SP = %p, Stack Top = %p\n", tcb_a.sp, &stack_a[256]);
+
+    for (;;) {
+        __asm volatile ("nop");
+    }
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//======================================GRAVEYARD OF MAINS=============================================/
+
+
+//#include "regs.h"
+//
+// #define LED 0
+//
+// uint32_t g_init = 0xCAFEBABE;   // goes to .data
+// uint32_t g_zero;                // goes to .bss
+// volatile float g_f = 1.5f;      // .data, and forces real FPU instructions
+//
+// volatile uint32_t g_ms = 0;
+//
+// void SysTick_Handler(void)
+// {
+//     g_ms++;
+// }
+//
+// static void systick_init(void)
+// {
+//     SYSTICK_LOAD = 64000UL - 1UL;
+//     SYSTICK_VAL= 0UL;
+//     SYSTICK_CTRL = SYSTICK_CTRL_CLKSOURCE | SYSTICK_CTRL_TICKINT | SYSTICK_CTRL_ENABLE;
+// }
+//
+// static void delay_ms(uint32_t ms)
+// {
+//     uint32_t start = g_ms;
+//     while ((g_ms - start) < ms){
+//
+//     }
+// }
+
+//int main(void)
+//{
+  //  RCC_AHB4ENR  |= RCC_AHB4ENR_GPIOBEN;
+
+    //volatile uint32_t dummy = RCC_AHB4ENR;
+    //(void)dummy;
+
+    //GPIOB_MODER &= ~(0x3UL << (LED*2) );
+    //GPIOB_MODER |= (0x1UL << (LED*2) );
+
+       
+    //systick_init();
+
+
+    //for (;;) { 
+     //GPIOB_BSRR = (1UL << LED);
+    //delay_ms(500);
+       // for(volatile uint32_t i=0; i<100000; i++){ 
+
+        //}
+
+   // GPIOB_BSRR = (1UL << (LED + 16));
+    //delay_ms(500);
+          //  for(volatile uint32_t i=0; i<100000; i++){ 
+        // }
+
+    //}
+
+    //return 0;
+//}
+
+/*int main(void)
+{
+    board_init();
+    uart_init();
+
+    kprintf("hello world from shannon :p\n");
+    kprintf("%x %d %u %s\n", 0xDEADBEEF, -42, 4000000000u, "ok");
+
+    for (;;) {
+        board_led_on();
+        board_delay_ms(500);
+
+        board_led_off();
+        board_delay_ms(500);
+
+        kprintf("current tick is %u ms\n", board_get_ms());
+    }
+
+    return 0;
+}
+*/
+
+/*
 #define FAULT_TEST 6
 
 
@@ -96,89 +293,6 @@ int main(void)
         board_delay_ms(500);
         board_led_off();
         board_delay_ms(500);
-    }
-
-    return 0;
-}
-
-
-//#include "regs.h"
-//
-// #define LED 0
-//
-// uint32_t g_init = 0xCAFEBABE;   // goes to .data
-// uint32_t g_zero;                // goes to .bss
-// volatile float g_f = 1.5f;      // .data, and forces real FPU instructions
-//
-// volatile uint32_t g_ms = 0;
-//
-// void SysTick_Handler(void)
-// {
-//     g_ms++;
-// }
-//
-// static void systick_init(void)
-// {
-//     SYSTICK_LOAD = 64000UL - 1UL;
-//     SYSTICK_VAL= 0UL;
-//     SYSTICK_CTRL = SYSTICK_CTRL_CLKSOURCE | SYSTICK_CTRL_TICKINT | SYSTICK_CTRL_ENABLE;
-// }
-//
-// static void delay_ms(uint32_t ms)
-// {
-//     uint32_t start = g_ms;
-//     while ((g_ms - start) < ms){
-//
-//     }
-// }
-
-//int main(void)
-//{
-  //  RCC_AHB4ENR  |= RCC_AHB4ENR_GPIOBEN;
-
-    //volatile uint32_t dummy = RCC_AHB4ENR;
-    //(void)dummy;
-
-    //GPIOB_MODER &= ~(0x3UL << (LED*2) );
-    //GPIOB_MODER |= (0x1UL << (LED*2) );
-
-       
-    //systick_init();
-
-
-    //for (;;) { 
-     //GPIOB_BSRR = (1UL << LED);
-    //delay_ms(500);
-       // for(volatile uint32_t i=0; i<100000; i++){ 
-
-        //}
-
-   // GPIOB_BSRR = (1UL << (LED + 16));
-    //delay_ms(500);
-          //  for(volatile uint32_t i=0; i<100000; i++){ 
-        // }
-
-    //}
-
-    //return 0;
-//}
-
-/*int main(void)
-{
-    board_init();
-    uart_init();
-
-    kprintf("hello world from shannon :p\n");
-    kprintf("%x %d %u %s\n", 0xDEADBEEF, -42, 4000000000u, "ok");
-
-    for (;;) {
-        board_led_on();
-        board_delay_ms(500);
-
-        board_led_off();
-        board_delay_ms(500);
-
-        kprintf("current tick is %u ms\n", board_get_ms());
     }
 
     return 0;

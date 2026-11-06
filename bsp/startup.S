@@ -22,7 +22,7 @@ g_pfnVectors:
     .word 0                     
     .word 0                     
     .word 0                     
-    .word SVC_Handler           
+    .word SVC_Handler            /*yoink yoink*/ 
     .word DebugMon_Handler      
     .word 0                     
     .word PendSV_Handler        

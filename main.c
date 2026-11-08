@@ -1,97 +1,205 @@
-#include <stdint.h> 
+#include <stdint.h>
+#include <stdbool.h>
 #include "board.h"
 #include "uart.h"
 #include "kprintf.h"
 #include "timing.h"
 #include "fault.h"
-#include "stm32h7xx.h"
 #include "port.h"
-#include "task.h"
-#include "kernel.h"
+#include "kernel/list.h"
+#include "kernel/task.h"
+#include "kernel/sched.h"
+#include "kernel/time.h"
 
-static uint32_t stack_a[256];
-static uint32_t stack_b[256];
-static tcb_t tcb_a;
-static tcb_t tcb_b;
 
-static volatile uint32_t g_switch_count = 0;
-static uint32_t g_t0 = 0;
-static uint32_t g_total_cycles = 0;
+static uint32_t stack_high[256];
+static uint32_t stack_mid1[256];
+static uint32_t stack_mid2[256];
 
-static void task_a(void *arg)
+static tcb_t tcb_high;
+static tcb_t tcb_mid1;
+static tcb_t tcb_mid2;
+
+static volatile uint32_t g_high_runs = 0;
+static volatile uint32_t g_mid1_runs = 0;
+static volatile uint32_t g_mid2_runs = 0;
+
+
+static uint32_t stack_hog1[256];
+static uint32_t stack_hog2[256];
+
+static tcb_t tcb_hog1;
+static tcb_t tcb_hog2;
+
+static volatile uint32_t g_count1 = 0;
+static volatile uint32_t g_count2 = 0;
+
+//My eyes hurt
+
+static uint32_t stack_blinker[256];
+static uint32_t stack_worker[256];
+
+static tcb_t tcb_blinker;
+static tcb_t tcb_worker;
+
+static volatile uint32_t g_worker_cycles = 0;
+static volatile uint32_t g_blinker_wakes = 0;
+
+
+static void task_blinker(void *arg)
 {
     (void)arg;
-    for (;;) {
+    for (;;) 
+    {
+        task_sleep(500);
 
-        g_t0 = timing_get_cycles();
-        //board_delay_ms(500);
-        task_yield();
+        g_blinker_wakes++;
+        board_led_toggle();
 
-        //after task b is yeilded
-        uint32_t delta = timing_get_cycles() - g_t0;
-        g_total_cycles += delta;
-        g_switch_count++;
+        kprintf("[Winker Blinker] wake #%u at tick: %u (worker cycles: %u)\n", g_blinker_wakes, g_tick, g_worker_cycles);
 
-        if (g_switch_count == 10000) {
-            bool a_ok = task_canary_check(&tcb_a);
-            bool b_ok = task_canary_check(&tcb_b);
-            uint32_t avg_roundtrip = g_total_cycles / 10000;
-
-            kprintf("completed sws: %u\n", g_switch_count);
-            kprintf("cost avg_roundtrip: %u cycles\n", avg_roundtrip);
-            kprintf("Task A Canary: %s\n", a_ok ? "Yay" : "Sad");
-            kprintf("Task B Canary: %s\n", b_ok ? "Yay" : "Sad");
-
-
-        for(;;)
+        if (g_blinker_wakes >= 5) 
         {
-            board_led_toggle();
-            kprintf("My Lord, Task A is runninh with PSP \n");
-            board_delay_ms(250);
-    
+          kprintf("slave ran in background without starvation.\n");
         }
+    }
+}
 
-
-
+static void task_worker(void *arg)
+{
+    (void)arg;
+    for (;;) 
+    {
+        g_worker_cycles++;
+        for (volatile int i = 0; i < 2000; i++) 
+        {
+            __asm volatile ("nop");
         }
-
-        }
-
+    }
 }
 
 
-static void task_b(void *arg)
+static void task_high(void *arg)
 {
     (void)arg;
     for (;;) {
-       // board_led_toggle();
-      //  kprintf("My Lord, Task B is runninh with PSP \n");
-        //board_delay_ms(500);
+        g_high_runs++;
+        kprintf("[MY lord Task is on the highest prority] Run %u\n", g_high_runs);
+
+        if (g_high_runs >= 3) {
+            kprintf("[Task is stoned] Mids should run now...\n");
+            sched_unready(&tcb_high);
+        }
+
         task_yield();
     }
 }
 
 
+static void task_mid1(void *arg)
+{
+    (void)arg;
+    
+    for (;;) 
+    {
+        g_mid1_runs++;
+        kprintf("  [My Lord, Mid1 tasks running now priority 10] run %u\n", g_mid1_runs);
+        
+        //Rotate ready list so Mid-2 gets a turn on yield 
+        sched_rotate(10);
+        task_yield();
+    }
+}
+
+
+static void task_mid2(void *arg)
+{
+    (void)arg;
+
+    for (;;) 
+    {
+        g_mid2_runs++;
+        kprintf("  [My LOrd Mid2 Tasks running now, at 10] Run %u\n", g_mid2_runs);
+
+        if (g_mid1_runs >= 5 && g_mid2_runs >= 5) 
+        {
+
+            kprintf("No Wayy Priority Pick worked ggs\n");
+          
+            for (;;) 
+            {
+                board_led_toggle();
+                board_delay_ms(500);
+            }
+
+        }
+  
+        sched_rotate(10);
+        task_yield();
+    }
+             
+}
+
+static void task_hog1(void *arg)
+{
+    (void)arg;
+    for (;;) 
+    {
+        g_count1++;
+        //no yield hog
+        for (volatile int i = 0; i < 20000; i++) 
+        {
+            __asm volatile ("nop");
+        }
+        if ((g_count1 % 50) == 0) 
+        {
+            kprintf("tick: %u | Hog1: %u | Hog2: %u\n", g_tick, g_count1, g_count2);
+            board_led_toggle();
+        }
+    }
+}
+
+static void task_hog2(void *arg)
+{
+    (void)arg;
+    for (;;) 
+    {
+        g_count2++;
+        for (volatile int i = 0; i < 20000; i++) 
+        {
+            __asm volatile ("nop");
+        }
+    }
+}
 
 int main(void)
 {
     board_init();
     uart_init();
     timing_init();
+    timing_dwt_init();
     fault_init();
     port_init();
+    sched_init();
+    time_init();
 
-    kprintf("\n[Shannon-RTOS] kERNEL dAY -2 Pend_SV task switching test Blackmagic :P\n");
-
-    task_create(&tcb_a, stack_a, sizeof(stack_a), task_a, (void *)0x12345678UL, "task_a");
-    task_create(&tcb_b, stack_b, sizeof(stack_b), task_b, (void *)0x12345678UL, "task_b");
+    kprintf("[Shannon-RTOS] Nini Test\n");
 
 
-    kernel_start();
+    /*task_create(&tcb_high, stack_high, sizeof(stack_high), task_high, NULL, "high", 5);
+    task_create(&tcb_mid1, stack_mid1, sizeof(stack_mid1), task_mid1, NULL, "mid1", 10);
+    task_create(&tcb_mid2, stack_mid2, sizeof(stack_mid2), task_mid2, NULL, "mid2", 10);*/
 
-    kprintf("Task A and B Created my Lord: SP = %p, Stack Top = %p\n", tcb_a.sp, &stack_a[256]);
+    /*task_create(&tcb_hog1, stack_hog1, sizeof(stack_hog1), task_hog1, NULL, "hog1", 10);
+    task_create(&tcb_hog2, stack_hog2, sizeof(stack_hog2), task_hog2, NULL, "hog2", 10);*/
 
-    for (;;) {
+    task_create(&tcb_blinker, stack_blinker, sizeof(stack_blinker), task_blinker, NULL, "blinker", 8);
+    task_create(&tcb_worker, stack_worker, sizeof(stack_worker), task_worker, NULL, "worker", 20);
+   
+   kernel_start();
+
+    for (;;) 
+    {
         __asm volatile ("nop");
     }
 
@@ -101,200 +209,3 @@ int main(void)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//======================================GRAVEYARD OF MAINS=============================================/
-
-
-//#include "regs.h"
-//
-// #define LED 0
-//
-// uint32_t g_init = 0xCAFEBABE;   // goes to .data
-// uint32_t g_zero;                // goes to .bss
-// volatile float g_f = 1.5f;      // .data, and forces real FPU instructions
-//
-// volatile uint32_t g_ms = 0;
-//
-// void SysTick_Handler(void)
-// {
-//     g_ms++;
-// }
-//
-// static void systick_init(void)
-// {
-//     SYSTICK_LOAD = 64000UL - 1UL;
-//     SYSTICK_VAL= 0UL;
-//     SYSTICK_CTRL = SYSTICK_CTRL_CLKSOURCE | SYSTICK_CTRL_TICKINT | SYSTICK_CTRL_ENABLE;
-// }
-//
-// static void delay_ms(uint32_t ms)
-// {
-//     uint32_t start = g_ms;
-//     while ((g_ms - start) < ms){
-//
-//     }
-// }
-
-//int main(void)
-//{
-  //  RCC_AHB4ENR  |= RCC_AHB4ENR_GPIOBEN;
-
-    //volatile uint32_t dummy = RCC_AHB4ENR;
-    //(void)dummy;
-
-    //GPIOB_MODER &= ~(0x3UL << (LED*2) );
-    //GPIOB_MODER |= (0x1UL << (LED*2) );
-
-       
-    //systick_init();
-
-
-    //for (;;) { 
-     //GPIOB_BSRR = (1UL << LED);
-    //delay_ms(500);
-       // for(volatile uint32_t i=0; i<100000; i++){ 
-
-        //}
-
-   // GPIOB_BSRR = (1UL << (LED + 16));
-    //delay_ms(500);
-          //  for(volatile uint32_t i=0; i<100000; i++){ 
-        // }
-
-    //}
-
-    //return 0;
-//}
-
-/*int main(void)
-{
-    board_init();
-    uart_init();
-
-    kprintf("hello world from shannon :p\n");
-    kprintf("%x %d %u %s\n", 0xDEADBEEF, -42, 4000000000u, "ok");
-
-    for (;;) {
-        board_led_on();
-        board_delay_ms(500);
-
-        board_led_off();
-        board_delay_ms(500);
-
-        kprintf("current tick is %u ms\n", board_get_ms());
-    }
-
-    return 0;
-}
-*/
-
-/*
-#define FAULT_TEST 6
-
-
-static void run_fault_test(int test)
-{
-    kprintf("fault test %d \n", test);
-
-    switch(test)
-        {
-        case 1: 
-            { //div by 0 test 
-                volatile int z =0;
-                volatile int x = 1/z;
-                (void)x;
-            break;
-            }   
-
-        case 2:
-            { //undefined instruction 
-                __asm volatile ("udf #0");
-            break;
-            }
-
-        case 3:
-            { //bad thumb state 
-                void (*bad_func)(void) = (void (*)(void))((uintptr_t)board_led_on & ~1UL);
-                bad_func();
-            break;
-            }
-
-        case 4: 
-            {// Unmapped FMC space; precise bus error
-                volatile uint32_t *unmapped = (volatile uint32_t *)0x60000000UL;
-                volatile uint32_t val = *unmapped;
-                (void)val;
-            break;
-            }
-
-        case 5: 
-            {// Imprecise bus error, buffered write to unmapped FMC space 
-                volatile uint32_t *unmapped = (volatile uint32_t *)0x60000000UL;
-                *unmapped = 0xDEADBEEFUL;
-            break;
-            }
-            
-        case 6: 
-            { // Escalation-> clear usage fault enable and trigger div by 0
-                SCB->SHCSR &= ~SCB_SHCSR_USGFAULTENA_Msk;
-                volatile int z = 0;
-                volatile int x = 1 / z;
-                (void)x;
-            break;
-            }
-
-            default:
-            kprintf("select test bbg\n");
-            break;
-        }
-}
-
-int main(void)
-{
-    board_init();
-    uart_init();
-    timing_init();
-    fault_init();
-
-    kprintf("\nNow that i have this cute print, ill print anything; this shows sys boot :D\n");
-
-    //  overhead measure 
-    uint32_t t0 = cycles_now();
-    uint32_t t1 = cycles_now();
-    uint32_t overhead = t1 - t0;
-    kprintf("overhead: %u cycles\n", overhead);
-
-    //measure 10000ms delay
-    uint32_t start = cycles_now();
-    board_delay_ms(1000);
-    uint32_t elapsed = (cycles_now() - start) - overhead;
-    kprintf("1000 ms delay = %u cycles (Expected ~64,000,000)\n", elapsed);
-
-#if FAULT_TEST != 0
-    run_fault_test(FAULT_TEST);
-#endif
-
-    for (;;) {
-        board_led_on();
-        board_delay_ms(500);
-        board_led_off();
-        board_delay_ms(500);
-    }
-
-    return 0;
-}
-*/

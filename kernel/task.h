@@ -1,0 +1,74 @@
+#ifndef TASK_H
+#define TASK_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include "list.h"
+
+#define STACK_CANARY_VAL 0XDEADBEEFUL
+
+//typedef struct tcb//sp. circ linked list ptr, base address of stack buffer, size, debug name 
+//{
+//    uint32_t *sp;
+//    struct tcb *next;
+//    uint32_t *stack_bottom;
+//    uint32_t stack_bytes;
+//    const char *name;
+//} tcb_t;
+
+typedef enum {
+    TASK_RUNNING,
+    TASK_READY,
+    TASK_BLOCKED
+} task_state_t;
+
+typedef struct tcb {
+    uint32_t       *sp;
+    uint32_t       *stack_bottom;
+    uint32_t        stack_bytes;
+    const char     *name;
+    struct tcb     *next;
+
+    /* Stage 8 scheduler fields */
+    uint8_t         prio;
+    task_state_t    state;
+    list_node_t     node;
+    uint32_t        wake_tick;
+} tcb_t;
+
+extern tcb_t *g_current_tcb;
+
+//bool task_canary_check(const tcb_t *tcb);
+
+//void task_create(
+//    tcb_t *tcb,
+//    uint32_t *stack,
+//    uint32_t stack_bytes,
+//    void (*entry)(void*),
+//    void *arg,
+//    const char *name
+//);
+
+void task_create(           //new def
+    tcb_t *tcb, 
+    uint32_t *stack, 
+    uint32_t stack_bytes,
+    void (*entry)(void *), 
+    void *arg, 
+    const char *name,
+    uint8_t prio
+);
+
+void task_yield(void);
+void task_exit(void);
+void kernel_switch(void);
+void kernel_start(void);
+bool task_canary_check(const tcb_t *tcb);
+
+
+#endif 
+
+
+
+

@@ -23,10 +23,12 @@ OBJS    = $(BUILD)/bsp/startup.o \
 					$(BUILD)/arch/fault.o \
 					$(BUILD)/arch/port.o \
           $(BUILD)/kernel/task.o  \
+					$(BUILD)/kernel/sched.o \
+					$(BUILD)/kernel/idle.o \
+					$(BUILD)/kernel/time.o \
           $(BUILD)/main.o 
 
 all: $(BUILD)/$(TARGET).elf $(BUILD)/$(TARGET).bin
-
 $(BUILD)/%.o: %.S
 	@mkdir -p $(dir $@)
 	$(CC) $(ASFLAGS) -c $< -o $@

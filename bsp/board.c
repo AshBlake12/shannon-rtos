@@ -3,16 +3,18 @@
 
 #define LED 0
 
+uint32_t SystemCoreClock = 64000000UL;
+
 uint32_t g_init = 0xCAFEBABE;   // goes to .data
 uint32_t g_zero;                // goes to .bss
 volatile float g_f = 1.5f;      // .data, and forces real FPU instructions
 
 volatile uint32_t g_ms = 0;
 
-void SysTick_Handler(void)
+/*void SysTick_Handler(void)
 {
     g_ms++;
-}
+}*/
 
 uint32_t board_get_ms(void)
 {
@@ -27,7 +29,8 @@ void board_init(void)
     GPIOB->MODER &= ~(0x3UL << (LED*2) );
     GPIOB->MODER |= (0x1UL << (LED*2) );
 
-    SysTick->LOAD = 64000UL - 1UL;
+  //  SysTick->LOAD = 64000UL - 1UL;
+    SysTick->LOAD = (SystemCoreClock / 1000UL) - 1UL;
     SysTick->VAL= 0UL;
     SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
 

@@ -1,6 +1,7 @@
 #include "kprintf.h"
 #include "uart.h"
-
+#include <stddef.h>
+#include <stdint.h>
 
 static void print_unsigned(uint32_t val, uint32_t base, int uppercase)
 {
@@ -21,6 +22,25 @@ static void print_unsigned(uint32_t val, uint32_t base, int uppercase)
     while (i > 0) {
         uart_putc(buf[--i]);
     }
+}
+
+void *memset(void *s, int c, size_t n)
+{
+    unsigned char *p = (unsigned char *)s;
+    while (n--) {
+        *p++ = (unsigned char)c;
+    }
+    return s;
+}
+
+void *memcpy(void *dest, const void *src, size_t n)
+{
+    char *d = (char *)dest;
+    const char *s = (const char *)src;
+    while (n--) {
+        *d++ = *s++;
+    }
+    return dest;
 }
 
 

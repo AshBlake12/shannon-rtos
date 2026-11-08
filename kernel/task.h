@@ -28,9 +28,6 @@ typedef struct tcb {
     uint32_t       *stack_bottom;
     uint32_t        stack_bytes;
     const char     *name;
-    struct tcb     *next;
-
-    /* Stage 8 scheduler fields */
     uint8_t         prio;
     task_state_t    state;
     list_node_t     node;
@@ -50,11 +47,13 @@ extern tcb_t *g_current_tcb;
 //    const char *name
 //);
 
+typedef void (*task_entry_t)(void *arg);
+
 void task_create(           //new def
     tcb_t *tcb, 
     uint32_t *stack, 
     uint32_t stack_bytes,
-    void (*entry)(void *), 
+    task_entry_t entry, 
     void *arg, 
     const char *name,
     uint8_t prio
@@ -62,10 +61,11 @@ void task_create(           //new def
 
 void task_yield(void);
 void task_exit(void);
-void kernel_switch(void);
+//void kernel_switch(void);
 void kernel_start(void);
 bool task_canary_check(const tcb_t *tcb);
-
+size_t task_stack_watermark(const tcb_t *tcb);
+void task_suspend(tcb_t *tcb);
 
 #endif 
 

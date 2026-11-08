@@ -1,5 +1,6 @@
 #include "sched.h"
 #include "task.h"
+#include "time.h"
 
 static list_node_t ready_lists[SCHED_PRIO_LEVELS];
 
@@ -14,6 +15,27 @@ void sched_init(void)
         list_init(&ready_lists[i]);
     }
 }
+
+
+void kernel_switch(void)
+{
+    tcb_t *prev = g_current_tcb;
+    tcb_t *next = sched_pick();
+
+    if (prev->state == TASK_RUNNING) 
+    {
+        prev->state = TASK_READY;
+    }
+
+    next->state = TASK_RUNNING;
+    g_current_tcb = next;
+
+    if (prev != next) 
+    {
+        time_slice_reset();
+    }
+}
+
 
 uint32_t sched_get_ready_bitmap(void)
 {

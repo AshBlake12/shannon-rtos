@@ -59,6 +59,15 @@ static inline void list_remove(list_node_t *node)
     node->prev = NULL;
 }
 
+static inline void list_insert_before(list_node_t *pos, list_node_t *node)
+{
+    node->next = pos;
+    node->prev = pos->prev;
+    pos->prev->next = node;
+    pos->prev = node;
+}
+
+
 static inline list_node_t *list_first(const list_node_t *head)
 {
     return list_is_empty(head) ? NULL : head->next;

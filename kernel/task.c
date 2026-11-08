@@ -7,6 +7,10 @@
 #include "sched.h"
 #include "idle.h"
 #include "sched.h"
+#include "time.h"
+
+
+#define STACK_FILL_PATTERN  0xA5A5A5A5UL
 
 
 tcb_t *g_current_tcb = NULL;
@@ -26,19 +30,13 @@ void kernel_start(void)
     idle_init();
 
     g_current_tcb = sched_pick();
+    g_current_tcb->state = TASK_RUNNING;
 
-    if (g_current_tcb != NULL) 
-    {
-        g_current_tcb->state = TASK_RUNNING;
+    g_kernel_running = true;
+    port_start_tick();
 
-        port_start_first_task();
-    }
-
-    for (;;) {
-        __asm volatile ("wfi");
-    }
-
-   /* if (g_current_tcb == NULL)
+    port_start_first_task();
+    /* if (g_current_tcb == NULL)
     {
         kprintf("[SHADY KERNEL] Tasks not registered \n");
         for(;;){
@@ -49,7 +47,7 @@ void kernel_start(void)
     port_start_first_task();*/
 }
 
-void kernel_switch(void)
+/*void kernel_switch(void)
 {
         if (g_current_tcb != NULL)
     {
@@ -69,7 +67,7 @@ void kernel_switch(void)
                     // CLZ(bitmap) = prio ... at a lower abstarction (post port) ARM clz instruct makes sense 
 
   
-}
+}*/
 
 bool task_canary_check(const tcb_t *tcb)
 {
@@ -83,27 +81,77 @@ bool task_canary_check(const tcb_t *tcb)
 void task_create(tcb_t *tcb, 
                  uint32_t *stack, 
                  uint32_t stack_bytes,
-                 void (*entry)(void *), 
+                 task_entry_t entry, 
                  void *arg, 
                  const char *name,
                  uint8_t prio)
 {
+    size_t words = stack_bytes / sizeof(uint32_t);
+
+    for (size_t i = 0; i < words; i++) {
+        stack[i] = STACK_FILL_PATTERN;
+    }
+
     tcb->stack_bottom = stack;
     tcb->stack_bytes  = stack_bytes;
     tcb->name         = name;
 
     tcb->prio         = prio;
     tcb->state        = TASK_READY;
-    tcb->wake_tick    = 0;
+    //tcb->wake_tick    = 0;
+    list_init(&tcb->node);
 
-    stack[0] = STACK_CANARY_VAL;  //Canary at stack bottom 
+    //stack[0] = STACK_CANARY_VAL;  //Canary at stack bottom 
 
-    uint32_t *stack_top = &stack[stack_bytes / sizeof(uint32_t)];
-
+    uint32_t *stack_top = &stack[words];
     tcb->sp = port_stack_init(entry, arg, stack_top, task_exit);  //16 word const frame
+
     uint32_t status = enter_critical();
     sched_ready(tcb);
     exit_critical(status);
+}
+
+void task_yield(void)
+{
+    uint32_t status = enter_critical();
+    if (g_current_tcb != NULL && g_current_tcb->prio < SCHED_PRIO_IDLE) 
+    {
+        sched_rotate(g_current_tcb->prio);
+    }
+
+    port_yield();
+    exit_critical(status);
+}
+
+void task_suspend(tcb_t *tcb)
+{
+    uint32_t status = enter_critical();
+    if (tcb == NULL) 
+    {
+        tcb = g_current_tcb;
+    }
+
+    tcb->state = TASK_BLOCKED;
+         sched_unready(tcb);
+
+    if (tcb == g_current_tcb) 
+    {
+        port_yield();
+    }
+    exit_critical(status);
+}
+
+size_t task_stack_watermark(const tcb_t *tcb)
+{
+    size_t words = tcb->stack_bytes / sizeof(uint32_t);
+    size_t unused = 0;
+
+    while (unused < words && tcb->stack_bottom[unused] == STACK_FILL_PATTERN)
+    {
+        unused++;
+    }
+
+    return unused * sizeof(uint32_t);
 }
 
 // void task_create(tcb_t *tcb,
@@ -143,7 +191,4 @@ void task_create(tcb_t *tcb,
 //     port_critical_exit();
 // }
 
-void task_yield(void)
-{
-    port_yield();
-}
+

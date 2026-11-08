@@ -1,3 +1,5 @@
+#include "port_defs.h"
+
 .syntax unified
 .cpu cortex-m7
 .thumb
@@ -56,7 +58,7 @@ bx lr
 PendSV_Handler:
 
 
-mov     r0, #0x50
+mov     r0, #KERNEL_PRIO_THRESHOLD
 msr     basepri, r0
 isb
 /*cpsid i*/ /*Disable interrupts*/ 

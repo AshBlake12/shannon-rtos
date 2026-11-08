@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "stm32h7a3xxq.h"
 
 
 
@@ -14,11 +15,19 @@ static uint32_t s_ticks_in_slice = 0;
 
 static list_node_t s_delay_list; //wake tick ascending
 
+extern volatile uint32_t g_systick_entry_cycle;
+extern volatile uint32_t g_task_woken_cycle;
+
 void time_init(void)
 {
     g_tick = 0;
     s_ticks_in_slice = 0;
     list_init(&s_delay_list);
+}
+
+void time_slice_reset(void)
+{
+    s_ticks_in_slice = 0;
 }
 
 void delay_list_insert_sorted(tcb_t *tcb)
@@ -34,13 +43,9 @@ void delay_list_insert_sorted(tcb_t *tcb)
         }
         curr = curr->next;
     }
-
-    /* Insert before curr */
-    tcb->node.next = curr;
-    tcb->node.prev = curr->prev;
-    curr->prev->next = &tcb->node;
-    curr->prev = &tcb->node;
+    list_insert_before(curr, &tcb->node);
 }
+
 
 void task_sleep(uint32_t ticks)
 {
@@ -58,15 +63,25 @@ void task_sleep(uint32_t ticks)
     sched_unready(g_current_tcb);
     delay_list_insert_sorted(g_current_tcb);
 
-    exit_critical(status);
-    port_yield();
+     port_yield();
 
+    extern volatile uint32_t g_task_woken_cycle;
+    g_task_woken_cycle = DWT->CYCCNT;
+
+     exit_critical(status);
+
+    g_task_woken_cycle = DWT->CYCCNT;
 }
-
 
 
 void kernel_tick(void)
 {
+    
+    if(!g_kernel_running)
+    {
+        return;
+    }
+
     bool need_resched = false;
     g_tick++;
     s_ticks_in_slice++;
@@ -85,6 +100,7 @@ void kernel_tick(void)
             if (g_current_tcb == NULL || sleeper->prio < g_current_tcb->prio) 
             {
                 need_resched = true;
+                g_systick_entry_cycle = DWT->CYCCNT;
             }
         } 
         else 
@@ -94,7 +110,7 @@ void kernel_tick(void)
     }
 
 
-    if (s_ticks_in_slice >= TIME_SLICE_TICKS) 
+    if (s_ticks_in_slice >= TIME_SLICE_TICKS) //round robin time slice for eq pr tasks
     {
         s_ticks_in_slice = 0;
 

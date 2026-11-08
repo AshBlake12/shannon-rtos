@@ -10,11 +10,12 @@
 #include "kernel/task.h"
 #include "kernel/sched.h"
 #include "kernel/time.h"
+#include "kernel/kernel.h"
 
 
-static uint32_t stack_high[256];
-static uint32_t stack_mid1[256];
-static uint32_t stack_mid2[256];
+static uint32_t stack_high[512];
+static uint32_t stack_mid1[512];
+static uint32_t stack_mid2[512];
 
 static tcb_t tcb_high;
 static tcb_t tcb_mid1;
@@ -45,6 +46,9 @@ static tcb_t tcb_worker;
 static volatile uint32_t g_worker_cycles = 0;
 static volatile uint32_t g_blinker_wakes = 0;
 
+//they still hurt
+volatile uint32_t g_systick_entry_cycle = 0;
+volatile uint32_t g_task_woken_cycle = 0;
 
 static void task_blinker(void *arg)
 {
@@ -86,9 +90,10 @@ static void task_high(void *arg)
         g_high_runs++;
         kprintf("[MY lord Task is on the highest prority] Run %u\n", g_high_runs);
 
-        if (g_high_runs >= 3) {
+        if (g_high_runs == 3) 
+        {
             kprintf("[Task is stoned] Mids should run now...\n");
-            sched_unready(&tcb_high);
+            task_suspend(NULL);
         }
 
         task_yield();
@@ -104,9 +109,11 @@ static void task_mid1(void *arg)
     {
         g_mid1_runs++;
         kprintf("  [My Lord, Mid1 tasks running now priority 10] run %u\n", g_mid1_runs);
+
+        if (g_mid1_runs >= 5) {
+            task_suspend(NULL);
+        }
         
-        //Rotate ready list so Mid-2 gets a turn on yield 
-        sched_rotate(10);
         task_yield();
     }
 }
@@ -121,23 +128,38 @@ static void task_mid2(void *arg)
         g_mid2_runs++;
         kprintf("  [My LOrd Mid2 Tasks running now, at 10] Run %u\n", g_mid2_runs);
 
-        if (g_mid1_runs >= 5 && g_mid2_runs >= 5) 
+        if (g_mid1_runs >= 4 && g_mid2_runs >= 4) 
         {
 
             kprintf("No Wayy Priority Pick worked ggs\n");
-          
-            for (;;) 
-            {
-                board_led_toggle();
-                board_delay_ms(500);
-            }
-
+            break;
         }
-  
-        sched_rotate(10);
-        task_yield();
+
+          task_yield();
     }
-             
+    //SOme kind of tick-wrapping Test [Paneer Roll]
+    
+    uint32_t status = enter_critical();
+    g_tick = 0xFFFFFFE0UL; // 32 ticks before wrap 
+    exit_critical(status);
+    
+    kprintf("[Paneer Roll] before nini tick: 0x%x\n", g_tick);
+    task_sleep(50); // This should cross the wrap to 0x00000012 
+    kprintf("[Paneer Roll] after nini tick: 0x%x\n", g_tick);
+
+    // Measure Preemption Latency 
+        for (int i = 0; i < 3; i++) 
+    {
+        task_sleep(10);
+        uint32_t latency = (uint32_t)(g_task_woken_cycle - g_systick_entry_cycle); 
+        kprintf("preempt latency: %u cycles\n", latency);
+    }
+
+        for (;;) 
+    {
+        board_led_toggle();
+        for (volatile int i = 0; i < 2000000; i++) __NOP();
+    }
 }
 
 static void task_hog1(void *arg)
@@ -185,23 +207,14 @@ int main(void)
 
     kprintf("[Shannon-RTOS] Nini Test\n");
 
-
-    /*task_create(&tcb_high, stack_high, sizeof(stack_high), task_high, NULL, "high", 5);
-    task_create(&tcb_mid1, stack_mid1, sizeof(stack_mid1), task_mid1, NULL, "mid1", 10);
-    task_create(&tcb_mid2, stack_mid2, sizeof(stack_mid2), task_mid2, NULL, "mid2", 10);*/
-
     /*task_create(&tcb_hog1, stack_hog1, sizeof(stack_hog1), task_hog1, NULL, "hog1", 10);
     task_create(&tcb_hog2, stack_hog2, sizeof(stack_hog2), task_hog2, NULL, "hog2", 10);*/
 
-    task_create(&tcb_blinker, stack_blinker, sizeof(stack_blinker), task_blinker, NULL, "blinker", 8);
-    task_create(&tcb_worker, stack_worker, sizeof(stack_worker), task_worker, NULL, "worker", 20);
-   
-   kernel_start();
+    task_create(&tcb_high, stack_high, sizeof(stack_high), task_high, NULL, "high", 5);
+    task_create(&tcb_mid1, stack_mid1, sizeof(stack_mid1), task_mid1, NULL, "mid1", 10);
+    task_create(&tcb_mid2, stack_mid2, sizeof(stack_mid2), task_mid2, NULL, "mid2", 10);
 
-    for (;;) 
-    {
-        __asm volatile ("nop");
-    }
+    kernel_start();
 
     return 0;
 }

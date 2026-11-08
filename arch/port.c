@@ -7,6 +7,9 @@
 #define PENDSV_PRIO_LOWEST  (0xFFUL << 16)
 #define SYSTICK_PRIO_LOWEST (0xFFUL << 24)
 
+
+volatile bool g_kernel_running = false;
+
 void SysTick_Handler(void)
 {
     kernel_tick();
@@ -53,6 +56,14 @@ uint32_t *port_stack_init(void (*entry)(void *), void *arg, uint32_t *stack_top,
 
     return sp;
 }
+
+void port_start_tick(void)
+{
+    SysTick->LOAD = (SystemCoreClock / 1000UL) - 1UL;
+    SysTick->VAL  = 0UL;
+    SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk   | SysTick_CTRL_ENABLE_Msk;
+}
+
 
 void port_yield(void)
 {

@@ -12,5 +12,6 @@ extern volatile uint32_t g_tick;
 void time_init(void);
 void kernel_tick(void);
 void task_sleep(uint32_t ticks);
+void time_slice_reset(void);
 
 #endif

@@ -57,8 +57,11 @@ void board_led_toggle(void)
 
 void board_delay_ms(uint32_t ms)
 {
-    uint32_t start = g_ms;
-    while ((g_ms - start) < ms) {
+    uint32_t start =DWT->CYCCNT; //use DWT cycle delay
+    uint32_t ticks = ms * (SystemCoreClock / 1000000UL);
+    while ((DWT->CYCCNT - start) < ticks) 
+    {
+        __NOP();
     }
 }
 

@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 extern volatile bool g_kernel_running;
+uint32_t port_cycle_count(void);
 
 void port_init(void);
 uint32_t *port_stack_init(void (*entry)(void*), void *arg, uint32_t *stack_top, void (*exit_handler)(void));

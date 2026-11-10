@@ -29,7 +29,7 @@ svc #0         /*call supervisor with req 0*/
 nop            /*no operation*/
 bx lr 
 
-
+ 
 .thumb_func
 SVC_Handler:
 /*First we should fetch the SP of running task*/
@@ -38,25 +38,26 @@ ldr r1, [r0]
 ldr r0, [r1]
 
 /*Pop R4-R11; from the above set r0 points to R4*/
-ldmia r0!, {r4-r11}     /*Increment r0 by 8 words*/
+ldmia r0!, {r4-r11, lr}     /*Increment r0 by 8 words*/
+
+tst     lr, #0x10
+it      eq
+vldmiaeq r0!, {s16-s31}
+
 
 /*Now load this pointer PSP*/
 msr psp, r0
 
 /*when in thread mode use psp from now on*/
 /*CONTROL reg bit 1 is SPSEL [0->MSP] [1->PSP]*/
-mrs r0, control
-orr r0, r0, #2
-msr control, r0
+mov r0, #0
+msr basepri, r0
 isb 
 
-/*exception return xFFFFFFFD returns the threadmode in PSP; this basically resets after series of pops thru R4-R11; then repointing to task_A*/
-ldr lr, =0xFFFFFFFD
 bx lr 
 
 .thumb_func
 PendSV_Handler:
-
 
 mov     r0, #KERNEL_PRIO_THRESHOLD
 msr     basepri, r0
@@ -64,12 +65,22 @@ isb
 /*cpsid i*/ /*Disable interrupts*/ 
 
 mrs r0, psp 
-stmdb r0!, {r4-r11}
+
+/* EXC_RETURN bit */ 
+tst     lr, #0x10
+it      eq
+vstmdbeq r0!, {s16-s31}
+
+
+stmdb r0!, {r4-r11, lr}
 
 ldr r1, =g_current_tcb
 ldr r2, [r1]
-str r0, [r2]
+cmp r2, #0 
+beq .Lskip_tcb_save
+str     r0, [r2]
 
+.Lskip_tcb_save:
 push {r4, lr}   /*Preserve EXEC_RETURN*/
 
 /*stack must be 8-byte aligned before calling any C function, why even ;(  Pushing a single 32-bit register misaligns MSP by 4 bytes :/*/
@@ -82,11 +93,21 @@ pop {r4, lr}  /*Restore EXC_RETURN*/
 /*we need to restore incoming task context*/ 
 ldr r1, =g_current_tcb
 ldr r2, [r1]
-ldr r0, [r2]
+cmp r2, #0 
+beq pendsv_trap
 
+ldr r0, [r2]
+tst     r0, #0x3 /*alignment chek*/
+bne     pendsv_trap
 
 /*Pop R4-R11; from the above set r0 points to R4*/
-ldmia r0!, {r4-r11}     /*Increment r0 by 8 words*/
+ldmia r0!, {r4-r11, lr}     /*Increment r0 by 8 words*/
+
+
+tst     lr, #0x10
+it      eq
+vldmiaeq r0!, {s16-s31}
+
 
 /*Now load this pointer PSP*/
 msr psp, r0
@@ -99,4 +120,6 @@ isb
 
 bx lr 
 
-
+pendsv_trap:
+bkpt    #0
+b       .

@@ -24,27 +24,31 @@ void port_init(void)
     SHPR3_REG |= PENDSV_PRIO_LOWEST | SYSTICK_PRIO_LOWEST;
 }
 
+
+// EXEC_Return on this R4-R11
+
 uint32_t *port_stack_init(void (*entry)(void *), void *arg, uint32_t *stack_top, void (*exit_handler)(void))
 {
     //8 byte stack seg for AAPCS
     uint32_t *sp = (uint32_t *)((uintptr_t)stack_top & ~0x7UL);
 
-    //16 word frame 
-    sp -= 16;
+    //17 word frame 
+    sp -= 17;
 
     // Core pops this while unstacking 
     // xPSR, PC, LR, R12, R3. R2, R1. R0 
-    sp[15] = 0x01000000UL;                    
-    sp[14] = (uint32_t)entry & ~1UL;            
-    sp[13] = (uint32_t)exit_handler;           
+    sp[16] = 0x01000000UL;                    
+    sp[15] = (uint32_t)entry;            
+    sp[14] = (uint32_t)exit_handler;           
+    sp[13] = 0x00000000UL;                      
     sp[12] = 0x00000000UL;                      
-    sp[11] = 0x00000000UL;                      
-    sp[10] = 0x00000000UL;                     
-    sp[9]  = 0x00000000UL;                   
-    sp[8]  = (uint32_t)arg;                     
+    sp[11] = 0x00000000UL;                     
+    sp[10]  = 0x00000000UL;                   
+    sp[9]  = (uint32_t)arg;                     
 
     //this pop happens manually using LDMIA
     // R11 - R4
+    sp[8]  = 0xFFFFFFFDUL;              // Pop into LR (EXC_RETURN)
     sp[7]  = 0x00000000UL;                          
     sp[6]  = 0x00000000UL;                       
     sp[5]  = 0x00000000UL;                     

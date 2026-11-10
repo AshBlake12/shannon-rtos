@@ -22,6 +22,7 @@ OBJS    = $(BUILD)/bsp/startup.o \
 					$(BUILD)/arch/context.o \
 					$(BUILD)/arch/fault.o \
 					$(BUILD)/arch/port.o \
+					$(BUILD)/arch/fpu.o \
           $(BUILD)/kernel/task.o  \
 					$(BUILD)/kernel/sched.o \
 					$(BUILD)/kernel/idle.o \

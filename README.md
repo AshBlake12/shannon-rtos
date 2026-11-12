@@ -77,4 +77,4 @@ open an issue or PR. keep it C, keep it small.
 
 ## License
 
-TBD
+MIT, see [LICENSE](LICENSE).

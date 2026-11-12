@@ -2,6 +2,7 @@ TARGET  = shannon
 BUILD   = build
 
 CC      = arm-none-eabi-gcc
+HOST_CC = gcc
 OBJCOPY = arm-none-eabi-objcopy
 SIZE    = arm-none-eabi-size
 
@@ -31,7 +32,14 @@ OBJS    = $(BUILD)/bsp/startup.o \
 					$(BUILD)/kernel/time.o \
 					$(BUILD)/kernel/wait.o \
 					$(BUILD)/kernel/semaphore.o \
+					$(BUILD)/kernel/mutex.o \
+					$(BUILD)/kernel/mqueue.o \
           $(BUILD)/main.o 
+
+ifeq ($(TEST),fpu)
+OBJS    += $(BUILD)/tests/target/fpu_asm.o
+CFLAGS  += -DENABLE_FPU_TEST
+endif
 
 all: $(BUILD)/$(TARGET).elf $(BUILD)/$(TARGET).bin
 $(BUILD)/%.o: %.S
@@ -57,7 +65,16 @@ $(BUILD):
 flash: $(BUILD)/$(TARGET).elf
 	openocd -f interface/stlink.cfg -f target/stm32h7x.cfg -c "program $< verify reset exit"
 
+test-target:
+	$(MAKE) clean
+	$(MAKE) TEST=fpu all
+
+test:
+	@mkdir -p $(BUILD)/host
+	$(HOST_CC) -std=c11 -O2 -g -Wall -Wextra -Ikernel tests/host/test_list.c -o $(BUILD)/host/test_list
+	./$(BUILD)/host/test_list
+
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all flash clean
+.PHONY: all flash clean test test-target

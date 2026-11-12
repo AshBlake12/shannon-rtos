@@ -1,4 +1,5 @@
 #include "semaphore.h"
+#include "kerr.h"
 #include "sched.h"
 #include "port.h"
 #include <stddef.h>
@@ -13,7 +14,7 @@ void semaphore_init(sem_t *sem, uint32_t initial_count, uint32_t max_count)
 kerr_t semaphore_take(sem_t *sem, uint32_t timeout_ticks)
 {
     // blocking inside an isr bad
-    if (port_in_isr()) 
+    if (port_in_isr() && timeout_ticks != K_NO_WAIT) 
     {
         return K_ERR_ISR;
     }

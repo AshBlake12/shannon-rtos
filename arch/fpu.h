@@ -7,6 +7,7 @@
 #define FPCCR_ADDR         (0xE000EF34UL)
 #define FPCCR_REG          (*(volatile uint32_t *)FPCCR_ADDR)
 
+//aspen = auto save fp ctx on exception, lspen = lazy (we keep lspen off for now)
 #define FPCCR_ASPEN        (1UL << 31)
 #define FPCCR_LSPEN        (1UL << 30)
 

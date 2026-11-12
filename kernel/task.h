@@ -39,6 +39,7 @@ typedef struct tcb {
     void           *blocked_on;    // Pointer to object waiting on (for priority inheritance
     uint32_t        wake_tick;
     bool            in_delay_list;
+    uint8_t         held_mutexes; //mutexes currently locked  by task
 } tcb_t;
 
 extern tcb_t *g_current_tcb;
@@ -72,7 +73,8 @@ void task_exit(void);
 void kernel_start(void);
 bool task_canary_check(const tcb_t *tcb);
 size_t task_stack_watermark(const tcb_t *tcb);
-void task_suspend(tcb_t *tcb);
+kerr_t task_suspend(tcb_t *tcb);
+kerr_t task_resume(tcb_t *tcb);
 
 #endif 
 

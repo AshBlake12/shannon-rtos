@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "list.h"
 
+//0 is highest, 31 lowest (idle sits here)
 #define SCHED_PRIO_LEVELS 32
 #define SCHED_PRIO_HIGHEST 0
 #define SCHED_PRIO_LOWEST  31
@@ -19,5 +20,6 @@ struct tcb *sched_pick(void);
 
 void sched_rotate(uint8_t prio);
 uint32_t sched_get_ready_bitmap(void);
+void sched_set_prio(struct tcb *tcb, uint8_t new_prio);
 
 #endif

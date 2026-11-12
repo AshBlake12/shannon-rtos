@@ -1,10 +1,12 @@
 #include "sched.h"
 #include "task.h"
 #include "time.h"
+#include <stdint.h>
 
+//one ready list per prio
 static list_node_t ready_lists[SCHED_PRIO_LEVELS];
 
-static uint32_t ready_bitmap = 0;
+static uint32_t ready_bitmap = 0; //bit (31-prio) set if that list has smth
 
 void sched_init(void)
 {
@@ -52,6 +54,7 @@ void sched_ready(tcb_t *tcb)
 
     list_insert_tail(&ready_lists[prio], &tcb->node);
     
+    // reversed so clz gives prio directly
     ready_bitmap |= (1UL << (31 - prio));
     tcb->state = TASK_READY;
 }
@@ -79,6 +82,7 @@ tcb_t *sched_pick(void)
     }
 
     
+    //clz = single instr on m7, O(1) pick no matter how many tasks
     uint32_t top_prio = (uint32_t)__builtin_clz(ready_bitmap);
 
     list_node_t *node = list_first(&ready_lists[top_prio]);
@@ -95,5 +99,28 @@ void sched_rotate(uint8_t prio)
     if (prio < SCHED_PRIO_LEVELS) 
     {
         list_rotate(&ready_lists[prio]);
+    }
+}
+
+void sched_set_prio(tcb_t *tcb, uint8_t new_prio)
+{
+    if (tcb->prio == new_prio || new_prio >= SCHED_PRIO_LEVELS) 
+    {
+        return;
+    }
+    // if task is in a ready list (either READY or currently RUNNING), move it to the new bucket
+    if (tcb->state == TASK_READY || tcb->state == TASK_RUNNING) 
+    {
+        task_state_t saved_state = tcb->state;
+        sched_unready(tcb);
+        tcb->prio = new_prio;
+        sched_ready(tcb);
+        tcb->state = saved_state; // keep RUNNING task marked RUNNING
+    } 
+    else 
+    {
+        // blocked or suspended: just update prio
+        // ??if blocked in another wait queue, its position there is not re-sorted
+        tcb->prio = new_prio;
     }
 }

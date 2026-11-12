@@ -3,7 +3,7 @@
 
 #include "task.h"
 
-#define IDLE_STACK_WORDS 128
+#define IDLE_STACK_WORDS 128 //idle does nothing so smol stack
 
 void idle_init(void);
 tcb_t *idle_get_tcb(void);

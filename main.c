@@ -6,24 +6,18 @@
 #include "timing.h"
 #include "fault.h"
 #include "port.h"
-#include "kernel/list.h"
 #include "kernel/task.h"
 #include "kernel/sched.h"
 #include "kernel/time.h"
 #include "kernel/kernel.h"
-#include "stm32h7a3xxq.h"
 #include "arch/fpu.h"
-#include "kernel/semaphore.h"
 
-//i cleaned ts thank me later
-//
-static uint32_t stack_bench[512];
-static tcb_t tcb_bench;
+//basic demo, put ur own tasks here
+static uint32_t stack_blink[512];
+static uint32_t stack_hello[512];
 
-static sem_t g_sem_hw;
-
-volatile uint32_t g_isr_give_cycles = 0;
-volatile uint32_t g_task_recv_cycles = 0;
+static tcb_t tcb_blink;
+static tcb_t tcb_hello;
 
 static void print_banner(void)
 {
@@ -37,41 +31,26 @@ static void print_banner(void)
     kprintf("\r\n");
 }
 
-void TIM6_DAC_IRQHandler(void)
+// blinks led every 500ms, if this stops kernel is ded
+static void task_blink(void *arg)
 {
-    if (TIM6->SR & TIM_SR_UIF) 
+    (void)arg;
+    while (1)
     {
-        TIM6->SR &= ~TIM_SR_UIF;
-
-        // timestamp cycle count right before waking the task
-        g_isr_give_cycles = DWT->CYCCNT;
-        semaphore_give(&g_sem_hw);
+        board_led_toggle();
+        task_sleep(500);
     }
 }
 
-static void task_benchmark(void *arg)
+static void task_hello(void *arg)
 {
     (void)arg;
-
-    // start timer ONLY now that the task is alive and ready to block
-    extern void tim6_init(uint16_t psc, uint16_t arr);
-    tim6_init(23999, 99);
-
-    for (int i = 0; i < 10; i++) 
+    uint32_t n = 0;
+    while (1)
     {
-        // blocks until tim6 gives the semaphore
-        semaphore_take(&g_sem_hw, K_FOREVER);
-        g_task_recv_cycles = DWT->CYCCNT;
-
-        uint32_t latency = g_task_recv_cycles - g_isr_give_cycles;
-        kprintf("[bench] sample %d: uncle to baccha latency = %u cycles\n", i, latency);
+        kprintf("[hello] tick %u\n", n++);
+        task_sleep(1000);
     }
-
-    // stop timer so it stops spamming interrupts
-    TIM6->CR1 &= ~TIM_CR1_CEN;
-    kprintf("Succesful sacrifice done\n");
-
-    task_suspend(NULL);
 }
 
 int main(void)
@@ -86,21 +65,15 @@ int main(void)
 
     sched_init();
     time_init();
-    
+
+    kprintf_init_lock();
+
     print_banner();
-    kprintf("ISR Benchmark w Semaphores\n");
 
-    // binary semaphore starts empty
-    semaphore_init(&g_sem_hw, 0, 1);
+    // lower num = higher prio
+    task_create(&tcb_blink, stack_blink, sizeof(stack_blink), task_blink, NULL, "blink", 10);
+    task_create(&tcb_hello, stack_hello, sizeof(stack_hello), task_hello, NULL, "hello", 10);
 
-    // priority 8 runs higher than idle
-    task_create(&tcb_bench, stack_bench, sizeof(stack_bench), task_benchmark, NULL, "bench", 8);
-
-
-    kernel_start();
-
+    kernel_start(); //never comes back
     return 0;
 }
-
-
-

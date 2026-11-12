@@ -2,6 +2,18 @@
 #include "uart.h"
 #include <stddef.h>
 #include <stdint.h>
+#include "mutex.h"
+#include "port.h"
+
+//mutex so 2 tasks printing dont mash lines together
+static mutex_t g_kprintf_mutex;
+static bool    g_kprintf_mutex_ready = false;
+
+void kprintf_init_lock(void)
+{
+    mutex_init(&g_kprintf_mutex, true);
+    g_kprintf_mutex_ready = true;
+}
 
 static void print_unsigned(uint32_t val, uint32_t base, int uppercase)
 {
@@ -24,6 +36,7 @@ static void print_unsigned(uint32_t val, uint32_t base, int uppercase)
     }
 }
 
+//no libc (-nostdlib) so gcc still emits memset/memcpy calls, had to roll own
 void *memset(void *s, int c, size_t n)
 {
     unsigned char *p = (unsigned char *)s;
@@ -63,6 +76,18 @@ void kprintf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
+    
+    // only lock if kernel is up and not in isr, cant block inside a handler
+    bool locked = false;
+    
+    if (g_kernel_running && g_kprintf_mutex_ready && !port_in_isr()) 
+{
+        if (mutex_lock(&g_kprintf_mutex, K_FOREVER) == K_OK) 
+    {
+        locked = true;
+    }
+}
+
 
     for (const char *p = fmt; *p != '\0'; p++) {
         if (*p != '%') {
@@ -73,7 +98,7 @@ void kprintf(const char *fmt, ...)
             continue;
         }
 
-        p++; 
+        p++; //skip the %
 
         switch (*p) {
         case 'c': {
@@ -119,7 +144,7 @@ void kprintf(const char *fmt, ...)
             uart_putc('%');
             break;
         }
-        default:
+        default: //unknown fmt, just dump it as is
             uart_putc('%');
             uart_putc(*p);
             break;
@@ -127,4 +152,9 @@ void kprintf(const char *fmt, ...)
     }
 
     va_end(args);
+
+    if (locked) 
+{
+    mutex_unlock(&g_kprintf_mutex);
+}
 }

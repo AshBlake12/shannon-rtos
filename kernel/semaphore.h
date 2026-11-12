@@ -5,6 +5,7 @@
 #include "wait.h"
 #include "kerr.h"
 
+//counting sem, max_count=1 makes it binary
 typedef struct {
     uint32_t     count;
     uint32_t     max_count;

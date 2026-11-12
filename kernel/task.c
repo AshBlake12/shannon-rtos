@@ -105,6 +105,9 @@ void task_create(tcb_t *tcb,
     tcb->wait_result  = K_OK;   //default wait 
     tcb->blocked_on   = NULL;   
 
+    tcb->in_delay_list = false;
+    tcb-> held_mutexes = 0;
+
     list_init(&tcb->node);
     list_init(&tcb->event_node);    // Wait queue node 
 
@@ -130,22 +133,26 @@ void task_yield(void)
     exit_critical(status);
 }
 
-void task_suspend(tcb_t *tcb)
+kerr_t task_suspend(tcb_t *tcb)
 {
+   if (port_in_isr()) return K_ERR_ISR;
+
     uint32_t status = enter_critical();
-    if (tcb == NULL) 
+    if (tcb == NULL) tcb = g_current_tcb;
+
+    if (tcb->held_mutexes > 0 || tcb->state == TASK_SUSPENDED ||
+        tcb->state == TASK_BLOCKED || tcb->in_delay_list) 
     {
-        tcb = g_current_tcb;
+        exit_critical(status);
+        return K_ERR_STATE;
     }
 
-    tcb->state = TASK_BLOCKED;
-         sched_unready(tcb);
+    tcb->state = TASK_SUSPENDED;
+    sched_unready(tcb);
+    if (tcb == g_current_tcb) port_yield();
 
-    if (tcb == g_current_tcb) 
-    {
-        port_yield();
-    }
     exit_critical(status);
+    return K_OK;
 }
 
 size_t task_stack_watermark(const tcb_t *tcb)

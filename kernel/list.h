@@ -73,6 +73,7 @@ static inline list_node_t *list_first(const list_node_t *head)
     return list_is_empty(head) ? NULL : head->next;
 }
 
+//move first to back, used for round robin
 static inline void list_rotate(list_node_t *head)
 {
     if (!list_is_empty(head) && (head->next != head->prev)) {

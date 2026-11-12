@@ -13,6 +13,7 @@ typedef int32_t kerr_t;
 #define K_ERR_NOT_OWNER  -4
 #define K_ERR_PARAM      -5
 #define K_ERR_OVERFLOW   -6
+#define K_ERR_STATE      -7
 
 // wait timeout constants
 #define K_NO_WAIT         0UL

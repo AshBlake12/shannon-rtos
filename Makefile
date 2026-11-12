@@ -16,10 +16,12 @@ LDFLAGS = $(CPU) -nostdlib -T bsp/h7a3.ld -Wl,-Map=$(BUILD)/$(TARGET).map -Wl,--
 OBJS    = $(BUILD)/bsp/startup.o \
           $(BUILD)/bsp/board.o   \
           $(BUILD)/bsp/uart.o    \
+          $(BUILD)/bsp/timer.o    \
           $(BUILD)/lib/kprintf.o \
 					$(BUILD)/bsp/timing.o  \
           $(BUILD)/arch/fault_entry.o \
 					$(BUILD)/arch/context.o \
+					$(BUILD)/tests/target/fpu_asm.o \
 					$(BUILD)/arch/fault.o \
 					$(BUILD)/arch/port.o \
 					$(BUILD)/arch/fpu.o \
@@ -27,6 +29,8 @@ OBJS    = $(BUILD)/bsp/startup.o \
 					$(BUILD)/kernel/sched.o \
 					$(BUILD)/kernel/idle.o \
 					$(BUILD)/kernel/time.o \
+					$(BUILD)/kernel/wait.o \
+					$(BUILD)/kernel/semaphore.o \
           $(BUILD)/main.o 
 
 all: $(BUILD)/$(TARGET).elf $(BUILD)/$(TARGET).bin

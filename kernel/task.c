@@ -8,6 +8,7 @@
 #include "idle.h"
 #include "sched.h"
 #include "time.h"
+#include "kerr.h"
 
 
 #define STACK_FILL_PATTERN  0xA5A5A5A5UL
@@ -91,15 +92,21 @@ void task_create(tcb_t *tcb,
     for (size_t i = 0; i < words; i++) {
         stack[i] = STACK_FILL_PATTERN;
     }
-
+    
     tcb->stack_bottom = stack;
     tcb->stack_bytes  = stack_bytes;
     tcb->name         = name;
 
     tcb->prio         = prio;
+    tcb->base_prio    = prio; //base priority matches og prio
     tcb->state        = TASK_READY;
-    //tcb->wake_tick    = 0;
+    tcb->wake_tick    = 0;
+
+    tcb->wait_result  = K_OK;   //default wait 
+    tcb->blocked_on   = NULL;   
+
     list_init(&tcb->node);
+    list_init(&tcb->event_node);    // Wait queue node 
 
     //stack[0] = STACK_CANARY_VAL;  //Canary at stack bottom 
 

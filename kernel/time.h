@@ -13,5 +13,8 @@ void time_init(void);
 void kernel_tick(void);
 void task_sleep(uint32_t ticks);
 void time_slice_reset(void);
+void time_delay_insert(tcb_t *tcb, uint32_t ticks);
+void time_delay_remove(tcb_t *tcb);
+
 
 #endif

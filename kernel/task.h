@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "list.h"
+#include "kerr.h"
 
 #define STACK_CANARY_VAL 0XDEADBEEFUL
 
@@ -20,7 +21,8 @@
 typedef enum {
     TASK_RUNNING,
     TASK_READY,
-    TASK_BLOCKED
+    TASK_BLOCKED,
+    TASK_SUSPENDED
 } task_state_t;
 
 typedef struct tcb {
@@ -29,9 +31,14 @@ typedef struct tcb {
     uint32_t        stack_bytes;
     const char     *name;
     uint8_t         prio;
+    uint8_t         base_prio;
     task_state_t    state;
     list_node_t     node;
+    list_node_t     event_node;    // SynC wait queue node 
+    kerr_t          wait_result;   // Result of the wait: K_OK, K_TIMEOUT, ETC ETC 
+    void           *blocked_on;    // Pointer to object waiting on (for priority inheritance
     uint32_t        wake_tick;
+    bool            in_delay_list;
 } tcb_t;
 
 extern tcb_t *g_current_tcb;

@@ -5,6 +5,9 @@
 #include "port_defs.h"
 #include <stdbool.h>
 
+#include "cmsis_gcc.h"
+
+
 extern volatile bool g_kernel_running;
 uint32_t port_cycle_count(void);
 
@@ -16,6 +19,10 @@ void port_yield(void);
 void port_critical_enter(void);
 void port_critical_exit(void);
 
+static inline bool port_in_isr(void)
+{
+    return (__get_IPSR() != 0);
+}
 
 uint32_t enter_critical(void);
 void exit_critical(uint32_t prev_basepri);
